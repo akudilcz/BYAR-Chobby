@@ -441,6 +441,11 @@ local function GetPlayerDisplayName(userName, userControls)
 	if GetPlayerNote(userName, GetPlayerNoteUserInfo(userName, userControls)) then
 		return userName .. "*"
 	end
+	-- bots with a difficulty profile show it after their name
+	local difficulty = WG.AiDifficulty and userControls.lobby and WG.AiDifficulty.GetCurrentLabel(userControls.lobby, userName)
+	if difficulty then
+		return userName .. "  [" .. difficulty .. "]"
+	end
 	return userName
 end
 
@@ -534,6 +539,8 @@ local function GetUserComboBoxOptions(userName, isInBattle, control, showTeamCol
 																													comboOptions[#comboOptions + 1] = "Add Bonus" end
 	if (iAmBoss or (iPlay and not bossed)) and not bs.aiLib and isInBattle and not bs.isSpectator then								comboOptions[#comboOptions + 1] = "Force Spectator" end
 	if (iAmBoss or (iPlay and not bossed)) and not itsme and not info.isBot and isInBattle and not bs.aiLib then						comboOptions[#comboOptions + 1] = "Kickban" end
+	if bs.aiLib and bs.owner == myUserName and isInBattle and WG.AiDifficulty
+		and WG.AiDifficulty.GetProfiles(control.lobby, bs.aiLib, bs.aiVersion) then									comboOptions[#comboOptions + 1] = "Set Difficulty" end
 	if bs.aiLib then																								comboOptions[#comboOptions + 1] = "Clone AI" end
 	if bs.aiLib and bs.owner == myUserName and isInBattle then														comboOptions[#comboOptions + 1] = "Remove" end
 	if not itsme and not info.isBot and not bs.aiLib then															comboOptions[#comboOptions + 1] = "Report User" end
@@ -1622,6 +1629,8 @@ local function GetUserControls(userName, opts)
 								end
 							end
 						})
+					elseif selectedName == "Set Difficulty" then
+						WG.AiDifficulty.Open(userName, userControls.lobby)
 					elseif selectedName == "Clone AI" then
 						local function CloneFunc(numberOfClones)
 							local status = userControls.lobby:GetUserBattleStatus(userName)
