@@ -151,7 +151,8 @@ function widget:Update()
 end
 
 function widget:Shutdown()
-	Spring.Echo(string.format("Rapid Pool Cache: Done with %d files (%d KB, %.2f MB/s) in %.2fs", loaded, totalKB, 0.001*totalKB/totaltime,  totaltime))
+	-- totaltime is 0 when nothing was cached (e.g. a dev .sdd install): no division by zero
+	Spring.Echo(string.format("Rapid Pool Cache: Done with %d files (%d KB, %.2f MB/s) in %.2fs", loaded, totalKB, (totaltime > 0) and (0.001*totalKB/totaltime) or 0,  totaltime))
 	if lobby then
 		lobby:RemoveListener("OnBattleAboutToStart", OnBattleAboutToStart)
 	end
