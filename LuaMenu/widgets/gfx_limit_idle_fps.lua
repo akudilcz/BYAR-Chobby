@@ -51,6 +51,7 @@ local vsyncValueLobby = 1
 local vsyncValueSleep = vsyncValueLobby + 2
 local maxVsync = 6
 local vsyncValueHibernate = maxVsync
+local vsyncValueGame = -1	-- the game's default (BAR gui_options: GetConfigInt("VSyncGame", -1)); was used but never defined
 local vsyncValueOffscreen = maxVsync
 
 local isLinux = string.find(Platform.osName:lower(), 'linux')	-- not sure what exact implications linux has, but someone reported flickering
