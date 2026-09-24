@@ -13,11 +13,14 @@ function widget:GetInfo()
 	}
 end
 
-local idleTime = 0.5
-local idleFps = 10	-- lower numbers will result in more severe flicker on some card/driver settings
-local sleepTime = 1
-local sleepFps = 5
-local hibernateTime = 2
+-- (akudilcz fork) the lobby stays at full frame rate while in use: the upstream values
+-- (10 fps after 0.5 s without input, 5 fps after 1 s, 2 fps after 2 s) made it feel
+-- sluggish because every pause dropped it to a crawl and waking up took a slow frame
+local idleTime = 10
+local idleFps = 30	-- lower numbers will result in more severe flicker on some card/driver settings
+local sleepTime = 30
+local sleepFps = 10
+local hibernateTime = 60
 local hibernateFps = 2
 local offscreenFps = 1
 
@@ -29,11 +32,16 @@ local isIdle = false
 local isSleep = false
 local isHibernate = false
 local isAway = false
-local lastUserInputTime = os.clock()
+-- wall-clock seconds since load (os.clock() is process CPU time on Linux)
+local startTimer = Spring.GetTimer()
+local function wallClock()
+	return Spring.DiffTimers(Spring.GetTimer(), startTimer)
+end
+local lastUserInputTime = wallClock()
 local lastMouseX, lastMouseY = Spring.GetMouseState()
 local drawAtFullspeed = true
 local isOffscreen = false
-local nextFrameTime = os.clock()
+local nextFrameTime = wallClock()
 local frameDelayTime = 0
 local enabled = false
 
@@ -55,12 +63,6 @@ if isIntel or isLinux or isAmd then -- This is an attempted fix at AMD Driver 24
 	maxVsync = 4	-- intel seems to no support vsync above 4 (but haven't tested the new intel XE)
 	vsyncValueHibernate = maxVsync
 	vsyncValueOffscreen = maxVsync
-	idleTime = 0.25
-	idleFps = 30	-- lower numbers will result in more severe flicker on intel gfx
-	sleepTime = 1
-	sleepFps = 15
-	hibernateTime = 2
-	hibernateFps = 2
 end
 
 if Spring.GetConfigInt("VSync", 1) > maxVsync then
@@ -100,15 +102,10 @@ if infolog then
 end
 
 local function init()
-	if monitorFrequency >= 110 then
+	-- every vblank while in use; the idle states below still throttle
+	vsyncValueLobby = 1
+	if not drawAtFullspeed and monitorFrequency >= 110 then
 		vsyncValueLobby = 2
-	elseif monitorFrequency >= 200 then
-		vsyncValueLobby = 3
-	else
-		vsyncValueLobby = 1
-	end
-	if not drawAtFullspeed then
-		vsyncValueLobby = vsyncValueLobby + 1
 	end
 	vsyncValueSleep = vsyncValueLobby + 2
 	if vsyncValueSleep > maxVsync then vsyncValueSleep = maxVsync end
@@ -125,7 +122,7 @@ local function init()
 end
 
 local function logUserInput()
-	local clock = os.clock()
+	local clock = wallClock()
 	if clock > lastUserInputTime then
 		lastUserInputTime = clock
 	end
@@ -141,9 +138,9 @@ function widget:Initialize()
 
 	WG.LimitFps = {}
 	WG.LimitFps.ForceRedrawPeriod = function(time)	-- optional time for duration of prolonged wakeness
-		lastUserInputTime = os.clock() + (time or 0)
-		if nextFrameTime > os.clock() + (1/(drawAtFullspeed and activeFullspeedFps or activeFps)) then
-			nextFrameTime = os.clock()
+		lastUserInputTime = wallClock() + (time or 0)
+		if nextFrameTime > wallClock() + (1/(drawAtFullspeed and activeFullspeedFps or activeFps)) then
+			nextFrameTime = wallClock()
 		end
 	end
 	WG.LimitFps.ForceRedraw = WG.LimitFps.ForceRedrawPeriod
@@ -203,7 +200,7 @@ function widget:Update()
 			logUserInput()
 		end
 		local mouseX, mouseY, lmb, mmb, rmb, mouseOffscreen  = Spring.GetMouseState()
-		local clock = os.clock()
+		local clock = wallClock()
 		local prevIsSleep = isSleep
 		local prevIsHibernate = isHibernate
 		local prevIsOffscreen = isOffscreen
@@ -236,7 +233,7 @@ function widget:Update()
 		end
 
 		-- launch grace period
-		if os.clock() < 30 and os.clock() - lastUserInputTime > sleepTime+0.01 then
+		if wallClock() < 30 and wallClock() - lastUserInputTime > sleepTime+0.01 then
 			lastUserInputTime = clock - (sleepTime+0.01)
 		end
 
@@ -293,7 +290,7 @@ function widget:AllowDraw()
 		return true
 	end
 	if isIdle then
-		if os.clock() > nextFrameTime then
+		if wallClock() > nextFrameTime then
 			if isOffscreen then
 				frameDelayTime = 1/offscreenFps
 			elseif isHibernate then
@@ -303,11 +300,11 @@ function widget:AllowDraw()
 			else
 				frameDelayTime = 1/idleFps
 			end
-			nextFrameTime = os.clock()+frameDelayTime
+			nextFrameTime = wallClock()+frameDelayTime
 			return true
 		end
-	elseif os.clock() > nextFrameTime then
-		nextFrameTime = os.clock() + (1/(drawAtFullspeed and activeFullspeedFps or activeFps))
+	elseif wallClock() > nextFrameTime then
+		nextFrameTime = wallClock() + (1/(drawAtFullspeed and activeFullspeedFps or activeFps))
 		frameDelayTime = 0.025	-- reset
 		return true
 	end

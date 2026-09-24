@@ -337,7 +337,7 @@ function Configuration:init()
 	self.enableTextToSpeech = true
 	self.showOldAiVersions = false
 	self.showAiOptions = true
-	self.drawAtFullSpeed = false
+	self.drawAtFullSpeed = true -- (akudilcz fork) responsive lobby by default
 	self.fixFlicker = true
 	self.lastFactionChoice = 0
 	self.lastStartedBattleID = 0
