@@ -1323,8 +1323,15 @@ local function testEncodeDecode()
 	Spring.Log(LOG_SECTION, LOG.NOTICE, "Finished testEncodeDecode, found Errors: ", error)
 end
 
+-- The font renderer treats CR and other control characters as line breaks and \255 / \254 as colour codes,
+-- so chat passed through as-is could draw lines that look like the host's or another user's.
+local function StripTextControlCodes(message)
+	return (message:gsub("[\254\255]", ""):gsub("[%z\1-\8\10-\31\127]", " "))
+end
+
 function Interface:_OnSaidBattle(userName, message)
-	if (message == "?test EncodeBattleStatus") then
+	message = StripTextControlCodes(message)
+	if message == "?test EncodeBattleStatus" and userName == self:GetMyUserName() then
 		testEncodeDecode()
 	end
 	self:super("_OnSaidBattle", userName, message)
@@ -1333,7 +1340,10 @@ Interface.commands["SAIDBATTLE"] = Interface._OnSaidBattle
 Interface.commandPattern["SAIDBATTLE"] = "(%S+)%s+(.*)"
 
 function Interface:_OnSaidBattleEx(userName, message)
-	if startsWith(message, WG.Chobby.Configuration.BTLEX_JOINQUEUE) then
+	message = StripTextControlCodes(message)
+	-- The Coordinator sends this. The bot flag is set by the server, so a player's /me of the same text stays plain chat.
+	local sender = self.users[userName]
+	if sender and sender.isBot and startsWith(message, WG.Chobby.Configuration.BTLEX_JOINQUEUE) then
 		self:_SendCommand(concat("c.battle.queue_status")) -- request the whole join-queue again, because server doesn´t always send s.battle.queue_status or sends it before the change took affect
 		return
 	end
@@ -1403,25 +1413,25 @@ Interface.commands["CHANNELTOPIC"] = Interface._OnChannelTopic
 Interface.commandPattern["CHANNELTOPIC"] = "(%S+)%s+(%S+)%s*(.*)"
 
 function Interface:_OnSaid(chanName, userName, message)
-	self:super("_OnSaid", chanName, userName, message)
+	self:super("_OnSaid", chanName, userName, StripTextControlCodes(message))
 end
 Interface.commands["SAID"] = Interface._OnSaid
 Interface.commandPattern["SAID"] = "(%S+)%s+(%S+)%s+(.*)"
 
 function Interface:_OnSaidEx(chanName, userName, message)
-	self:super("_OnSaidEx", chanName, userName, message)
+	self:super("_OnSaidEx", chanName, userName, StripTextControlCodes(message))
 end
 Interface.commands["SAIDEX"] = Interface._OnSaidEx
 Interface.commandPattern["SAIDEX"] = "(%S+)%s+(%S+)%s+(.*)"
 
 function Interface:_OnSaidPrivate(userName, message)
-	self:super("_OnSaidPrivate", userName, message)
+	self:super("_OnSaidPrivate", userName, StripTextControlCodes(message))
 end
 Interface.commands["SAIDPRIVATE"] = Interface._OnSaidPrivate
 Interface.commandPattern["SAIDPRIVATE"] = "(%S+)%s+(.*)"
 
 function Interface:_OnSaidPrivateEx(userName, message)
-	self:super("_OnSaidPrivateEx", userName, message)
+	self:super("_OnSaidPrivateEx", userName, StripTextControlCodes(message))
 end
 Interface.commands["SAIDPRIVATEEX"] = Interface._OnSaidPrivateEx
 Interface.commandPattern["SAIDPRIVATEEX"] = "(%S+)%s+(.*)"
