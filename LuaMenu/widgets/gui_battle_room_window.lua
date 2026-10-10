@@ -305,6 +305,13 @@ local function BuildRandomSkirmishSetup()
 
 	local picked = validMaps[math.random(1, #validMaps)]
 	local teamCount = picked.teamCount
+	local mapStartBoxes = WG.Chobby.Configuration.gameConfig and WG.Chobby.Configuration.gameConfig.mapStartBoxes
+	local selectedBoxes
+	if mapStartBoxes and mapStartBoxes.savedBoxes and mapStartBoxes.selectStartBoxesForAllyTeamCount then
+		selectedBoxes = mapStartBoxes.selectStartBoxesForAllyTeamCount(mapStartBoxes.savedBoxes[picked.map], teamCount)
+	end
+	-- Match the available start boxes, including the two-box fallback.
+	teamCount = math.min(teamCount, selectedBoxes and #selectedBoxes or 2)
 	local playersPerTeam = math.max(1, math.floor((picked.playerCount / teamCount) + 0.5))
 
 	local setup = {
@@ -336,10 +343,7 @@ local function BuildRandomSkirmishSetup()
 		end
 	end
 
-	local mapStartBoxes = WG.Chobby.Configuration.gameConfig and WG.Chobby.Configuration.gameConfig.mapStartBoxes
 	if mapStartBoxes and mapStartBoxes.savedBoxes and mapStartBoxes.selectStartBoxesForAllyTeamCount then
-		local allBoxes = mapStartBoxes.savedBoxes[setup.map]
-		local selectedBoxes = mapStartBoxes.selectStartBoxesForAllyTeamCount(allBoxes, setup.teamCount)
 		if selectedBoxes then
 			setup.startboxes = {}
 			for i = 1, setup.teamCount do
@@ -377,6 +381,9 @@ local function ApplySingleplayerSkirmishSetup(singleplayerDefault)
 	for i = 1, #aiNames do
 		battleLobby:RemoveAi(aiNames[i])
 	end
+	ApplyTeamCount(singleplayerDefault.teamCount)
+	-- Empty teams opened manually have no player-removal event to close them.
+	playerHandler.RemoveEmptyTeams()
 
 	if singleplayerDefault.map then
 		battleLobby:SelectMap(singleplayerDefault.map)
@@ -414,8 +421,8 @@ local function ApplySingleplayerSkirmishSetup(singleplayerDefault)
 		if not infoHandler then
 			return
 		end
-		infoHandler.RemoveStartRect()
 		if singleplayerDefault.startboxes then
+			infoHandler.RemoveStartRect()
 			for allyNo, box in pairs(singleplayerDefault.startboxes) do
 				infoHandler.AddStartRect(allyNo, box[1], box[2], box[3], box[4])
 			end
@@ -2066,8 +2073,6 @@ local function SetupInfoButtonsPanel(leftInfo, rightInfo, battle, battleID, myUs
 		-- it doesnt even know how big it is right nowhere
 		-- Spring.Utilities.TraceFullEcho()
 
-		startRectValues[allyNo+1]={["left"]=left, ["top"]=top, ["right"]=right, ["bottom"]=bottom}
-
 		if polygonStartboxesActive then
 			externalFunctions.RemovePolygonOverlays()
 		end
@@ -2079,6 +2084,8 @@ local function SetupInfoButtonsPanel(leftInfo, rightInfo, battle, battleID, myUs
 		local ow = math.floor(minimapPanel.width * (right-left) / 200)
 		local oh = math.floor(minimapPanel.height * (bottom-top) / 200)
 		if currentStartRects[allyNo+1] then externalFunctions.RemoveStartRect(allyNo) end
+		-- Removing the old window also clears its coordinates used when launching.
+		startRectValues[allyNo+1]={["left"]=left, ["top"]=top, ["right"]=right, ["bottom"]=bottom}
 		local newStartRect = Window:New {
 			name = 'newStartRect'..tostring(allyNo + 1),
 
@@ -3340,6 +3347,15 @@ local function SetupPlayerPanel(playerParent, spectatorParent, battle, battleID)
 	}
 
 	local externalFunctions = {}
+
+	function externalFunctions.RemoveEmptyTeams()
+		for teamIndex, teamData in pairs(team) do
+			if teamIndex > 1 then
+				teamData.CheckRemoval()
+			end
+		end
+		PositionChildren(mainStackPanel, mainScrollPanel.height)
+	end
 
 	function externalFunctions.UpdateBattleMode(newDisallowCustomTeams, newDisallowBots)
 		disallowCustomTeams = newDisallowCustomTeams
