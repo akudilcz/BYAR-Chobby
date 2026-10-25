@@ -541,7 +541,7 @@ local function GetUserComboBoxOptions(userName, isInBattle, control, showTeamCol
 	if (iAmBoss or (iPlay and not bossed)) and not itsme and not info.isBot and isInBattle and not bs.aiLib then						comboOptions[#comboOptions + 1] = "Kickban" end
 	if bs.aiLib and bs.owner == myUserName and isInBattle and WG.AiDifficulty
 		and WG.AiDifficulty.GetProfiles(control.lobby, bs.aiLib, bs.aiVersion) then									comboOptions[#comboOptions + 1] = "Set Difficulty" end
-	if bs.aiLib then																								comboOptions[#comboOptions + 1] = "Clone AI" end
+	if bs.aiLib and (iPlay or control.isSingleplayer) then															comboOptions[#comboOptions + 1] = "Clone AI" end
 	if bs.aiLib and bs.owner == myUserName and isInBattle then														comboOptions[#comboOptions + 1] = "Remove" end
 	if not itsme and not info.isBot and not bs.aiLib then															comboOptions[#comboOptions + 1] = "Report User" end
 	if not (info.isBot or bs.aiLib) then																			comboOptions[#comboOptions + 1] = "Add Player Notes" end
